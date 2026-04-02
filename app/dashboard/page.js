@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -15,7 +16,10 @@ export default function Dashboard() {
 
   // Load profile
   const loadProfile = async () => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) return;
 
     const { data } = await supabase
       .from("profiles")
@@ -28,7 +32,10 @@ export default function Dashboard() {
 
   // Subscribe
   const subscribe = async (planType) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) return;
 
     await supabase.from("profiles").update({
       subscription_status: "active",
@@ -41,12 +48,23 @@ export default function Dashboard() {
   // Add score (PRD correct)
   const addScore = async () => {
 
-    if(score < 1 || score > 45){
+    if (!score) {
+      alert("Enter a score");
+      return;
+    }
+
+    if (score < 1 || score > 45) {
       alert("Score must be between 1 and 45");
       return;
     }
 
-    const user = (await supabase.auth.getUser()).data.user;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) {
+      alert("Please login first");
+      return;
+    }
 
     const { data } = await supabase
       .from("scores")
@@ -54,8 +72,12 @@ export default function Dashboard() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
 
+    // Keep only last 5 scores
     if (data.length >= 5) {
-      await supabase.from("scores").delete().eq("id", data[0].id);
+      await supabase
+        .from("scores")
+        .delete()
+        .eq("id", data[0].id);
     }
 
     await supabase.from("scores").insert({
@@ -64,12 +86,16 @@ export default function Dashboard() {
       created_at: new Date()
     });
 
+    setScore("");
     loadScores();
   };
 
   // Load scores
   const loadScores = async () => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) return;
 
     const { data } = await supabase
       .from("scores")
@@ -90,29 +116,43 @@ export default function Dashboard() {
 
       <h1>Dashboard</h1>
 
-      <p><b>Subscription:</b> {profile?.subscription_status}</p>
+      <p><b>Subscription:</b> {profile?.subscription_status || "inactive"}</p>
 
-      <button onClick={()=>subscribe("monthly")}>Monthly Plan</button>
-      <button onClick={()=>subscribe("yearly")}>Yearly Plan</button>
+      <button onClick={() => subscribe("monthly")}>
+        Monthly Plan
+      </button>
+
+      <button onClick={() => subscribe("yearly")}>
+        Yearly Plan
+      </button>
 
       {profile?.subscription_status !== "active" && (
-        <p style={{color:"red"}}>Subscribe to use features</p>
+        <p style={{ color: "red" }}>
+          Please subscribe to unlock features
+        </p>
       )}
 
       <h2>Add Score</h2>
 
       <input
         type="number"
-        placeholder="1 - 45"
-        onChange={(e)=>setScore(e.target.value)}
+        placeholder="Enter score (1-45)"
+        value={score}
+        onChange={(e) => setScore(e.target.value)}
       />
 
-      <button onClick={addScore}>Add Score</button>
+      <button onClick={addScore}>
+        Add Score
+      </button>
 
-      <h2>Last Scores</h2>
+      <h2>Last 5 Scores</h2>
 
-      {scores.map((s)=>(
-        <div key={s.id}>{s.score}</div>
+      {scores.length === 0 && <p>No scores yet</p>}
+
+      {scores.map((s) => (
+        <div key={s.id}>
+          {s.score}
+        </div>
       ))}
 
     </div>
