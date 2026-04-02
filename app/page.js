@@ -7,6 +7,8 @@ export default function Home() {
         Track your golf scores, win rewards, and support meaningful charities.
       </p>
 
+      <p>Play → Win → Support Charity</p>
+
       <a className="link" href="/signup">Signup</a>
       <a className="link" href="/login">Login</a>
       <a className="link" href="/dashboard">Dashboard</a>

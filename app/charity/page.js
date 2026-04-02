@@ -6,7 +6,7 @@ return (
       <div key={c.id}>
         <p>{c.name}</p>
         <button onClick={()=>selectCharity(c.id)}>
-          Select
+         Select Charity
         </button>
       </div>
     ))}
