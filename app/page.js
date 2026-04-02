@@ -3,10 +3,6 @@ export default function Home() {
     <div className="container">
       <h1>Golf Charity Platform</h1>
 
-      <p>
-        Track your golf scores, win rewards, and support meaningful charities.
-      </p>
-
       <p>Play → Win → Support Charity</p>
 
       <a className="link" href="/signup">Signup</a>
