@@ -1,57 +1,106 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 export default function Dashboard() {
-  const [data, setData] = useState([]);
-  const [error, setError] = useState("");
+  const [score, setScore] = useState("");
+  const [scores, setScores] = useState([]);
+  const [profile, setProfile] = useState(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
-        // ✅ Stop if env missing (prevents crash)
-        if (!supabaseUrl || !supabaseKey) {
-          setError("Missing Supabase env variables");
-          return;
-        }
+  // Load profile
+  const loadProfile = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
 
-        // ✅ Create client ONLY on client side
-        const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-        const { data, error } = await supabase
-          .from("users") // change if needed
-          .select("*");
+    setProfile(data);
+  };
 
-        if (error) {
-          setError(error.message);
-        } else {
-          setData(data);
-        }
-      } catch (err) {
-        console.error(err);
-        setError("Something went wrong");
-      }
+  // Add score (5-limit logic)
+  const addScore = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+
+    const { data } = await supabase
+      .from("scores")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+
+    if (data.length >= 5) {
+      await supabase.from("scores").delete().eq("id", data[0].id);
     }
 
-    fetchData();
+    await supabase.from("scores").insert({
+      user_id: user.id,
+      score: Number(score),
+      created_at: new Date()
+    });
+
+    loadScores();
+  };
+
+  const loadScores = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+
+    const { data } = await supabase
+      .from("scores")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    setScores(data || []);
+  };
+
+  const subscribe = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+
+    await supabase
+      .from("profiles")
+      .update({ subscription_status: "active" })
+      .eq("id", user.id);
+
+    loadProfile();
+  };
+
+  useEffect(() => {
+    loadScores();
+    loadProfile();
   }, []);
 
   return (
     <div style={{ padding: "20px" }}>
       <h1>Dashboard</h1>
 
-      {error && <p style={{ color: "red" }}>Error: {error}</p>}
+      <p>Subscription: {profile?.subscription_status}</p>
 
-      {!error && data.length === 0 && <p>Loading...</p>}
+      <button onClick={subscribe}>
+        Activate Subscription
+      </button>
 
-      {data.map((item, index) => (
-        <div key={index}>
-          <pre>{JSON.stringify(item, null, 2)}</pre>
-        </div>
+      <br /><br />
+
+      <input
+        placeholder="Enter score"
+        onChange={(e)=>setScore(e.target.value)}
+      />
+
+      <button onClick={addScore}>
+        Add Score
+      </button>
+
+      <h2>Last Scores</h2>
+
+      {scores.map((s) => (
+        <div key={s.id}>{s.score}</div>
       ))}
     </div>
   );
