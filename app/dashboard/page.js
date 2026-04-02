@@ -1,47 +1,58 @@
-"use client"
-import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 export default function Dashboard() {
-  const [score, setScore] = useState("")
+  const [data, setData] = useState([]);
+  const [error, setError] = useState("");
 
-  const addScore = async () => {
-    const user = (await supabase.auth.getUser()).data.user
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    const { data } = await supabase
-      .from("scores")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true })
+        // ✅ Stop if env missing (prevents crash)
+        if (!supabaseUrl || !supabaseKey) {
+          setError("Missing Supabase env variables");
+          return;
+        }
 
-    if (data.length >= 5) {
-      await supabase
-        .from("scores")
-        .delete()
-        .eq("id", data[0].id)
+        // ✅ Create client ONLY on client side
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const { data, error } = await supabase
+          .from("users") // change if needed
+          .select("*");
+
+        if (error) {
+          setError(error.message);
+        } else {
+          setData(data);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("Something went wrong");
+      }
     }
 
-    await supabase.from("scores").insert({
-      user_id: user.id,
-      score: Number(score),
-      date: new Date()
-    })
-
-    alert("Score added")
-  }
+    fetchData();
+  }, []);
 
   return (
-    <div className="p-10">
-      <h1 className="text-xl font-bold">Dashboard</h1>
+    <div style={{ padding: "20px" }}>
+      <h1>Dashboard</h1>
 
-      <input className="border p-2"
-        placeholder="Enter score"
-        onChange={(e)=>setScore(e.target.value)} />
+      {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
-      <button className="bg-purple-500 text-white px-4 py-2 ml-2"
-        onClick={addScore}>
-        Add Score
-      </button>
+      {!error && data.length === 0 && <p>Loading...</p>}
+
+      {data.map((item, index) => (
+        <div key={index}>
+          <pre>{JSON.stringify(item, null, 2)}</pre>
+        </div>
+      ))}
     </div>
-  )
+  );
 }
